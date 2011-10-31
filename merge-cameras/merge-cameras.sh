@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/bin/bash
 
 ## Some constants.
 JHEAD=./jhead # The jhead program. E.g., use "jhead" if the program is in the search path.
