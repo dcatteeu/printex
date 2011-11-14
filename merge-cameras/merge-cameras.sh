@@ -1,8 +1,18 @@
 #!/bin/bash
 
+## Enable use of extended globs: http://mywiki.wooledge.org/glob
+## This is used for JPEG_FILES.
+shopt -s extglob
+
 ## Some constants.
-JHEAD=./jhead # The jhead program. E.g., use "jhead" if the program is in the search path.
-JPEGEXT=JPG # The extension of JPEG files.
+JHEAD=./jhead # The jhead program. E.g., use "jhead" if the program is
+	      # in the search path.
+JPEG_FILES=@(*.jpg|*.JPG|*.jpeg|*.JPEG) # Add any extensions here of
+					# files you want to accept as
+					# pictures. Keep the format:
+					# @(*.ext1|*.ext2|...|*.extn)!
+OUTPUT_EXT=JPG # The extension to be used for output, such as renamed
+	       # pictures.
 FIELD_SEPARATOR=, # Field separator for a temporary file.
 MINIMUM_NOF_DIGITS=4 # The minimum number of digits for naming JPEGs.
 
@@ -11,9 +21,10 @@ MINIMUM_NOF_DIGITS=4 # The minimum number of digits for naming JPEGs.
 usage() {
     echo "merge-cameras.sh <dest> <src 1> <src 2>"
     echo "Expects 3 directories relative to the current directory."
-    echo "The first directory is the one where the renamed pictures 0.JPG, "
-    echo "1.JPG, 2.JPG will be copied to. The second and third directory "
-    echo "contain the JPEGs of the first and second camera."
+    echo "The first directory is the one where the renamed pictures"
+    echo "0000.JPG, 0001.JPG, 0002.JPG, ... will be copied to. The"
+    echo "second and third directory contain the JPEGs of the first"
+    echo "and second camera."
 }
 if [ $# -ne 3 ]; then
     echo "ERROR: expects 3 parameters, not $#"
@@ -70,12 +81,12 @@ time_oldest_picture() {
 # camera
 # output: time when oldest picture was taken in seconds since 1/1/1970
     oldest_time=0
-    for i in "${1}"/*.${JPEGEXT}; do
+    for i in "${1}"/${JPEG_FILES}; do
 	timestamp=`timestamp "${i}"`
 	oldest_time="${timestamp}"
 	break
     done
-    for i in "${1}"/*.${JPEGEXT}; do
+    for i in "${1}"/${JPEG_FILES}; do
 	timestamp=`timestamp "${i}"`
 	if [ ${oldest_time} -gt ${timestamp} ]; then
 	    oldest_time=${timestamp}
@@ -88,7 +99,7 @@ write_2_table() {
 # params: source directory with JPEGs of one camera, time in seconds since 
 # oldest picture was taken, temporary file to write table
 # output: none
-    for i in "${1}"/*.${JPEGEXT}; do
+    for i in "${1}"/${JPEG_FILES}; do
 	offset=$[`timestamp "${i}"` - ${2}]
 	filename=`basename "${i}"`
 	echo "${offset},${filename},${1}" >> "${3}"
@@ -107,20 +118,24 @@ rest() {
     echo "${1#*${2}}"
 }
 
-## for both source directories, find time of oldest picture and make append a 
+## for both source directories, find time of oldest picture and append a 
 ## line for each picture to a temporary file. Each line has: "offset in 
 ## seconds to oldest picture", "filename", "source directory".
 table_file=`mktemp`
 for cam in "${2}" "${3}"; do
+    echo "INFO: finding oldest picture in ${cam}"
     oldest_time=`time_oldest_picture "${cam}"`
+    echo "INFO: building list of relative timestamps for pictures in ${cam}"
     write_2_table "${cam}" "${oldest_time}" "${table_file}"
 done
 
 ## sort the file with table: time offset, filename, source directory
+echo "INFO: sorting list of relative timestamps"
 sorted_table_file=`mktemp`
 sort --general-numeric-sort --stable --field-separator=${FIELD_SEPARATOR} "${table_file}" > "${sorted_table_file}"
 
 ## create destination directory
+echo "INFO: creating destination path ${1}"
 mkdir "${1}"
 
 prepad() {
@@ -131,6 +146,7 @@ prepad() {
 
 ## go through file with sorted table, copy and rename pictures one by one to 
 ## destination directory
+echo "INFO: copying and renaming sorted pictures"
 linenbr=0
 while read line; do
     offset=`first "${line}" ${FIELD_SEPARATOR}`
@@ -138,6 +154,7 @@ while read line; do
     old_filename=`first "${line}" ${FIELD_SEPARATOR}`
     cam=`rest "${line}" ${FIELD_SEPARATOR}`
     new_filename=`prepad ${linenbr} 0 ${MINIMUM_NOF_DIGITS}`
-    cp "${cam}/${old_filename}" "${1}/${new_filename}.${JPEGEXT}"
+    cp "${cam}/${old_filename}" "${1}/${new_filename}.${OUTPUT_EXT}"
     linenbr=$[ ${linenbr} + 1 ]
 done < "${sorted_table_file}"
+echo "INFO: done"
