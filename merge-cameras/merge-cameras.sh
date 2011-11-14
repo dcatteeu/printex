@@ -17,7 +17,6 @@ FIELD_SEPARATOR=, # Field separator for a temporary file.
 MINIMUM_NOF_DIGITS=4 # The minimum number of digits for naming JPEGs.
 
 
-## Check parameters.
 usage() {
     echo "merge-cameras.sh <dest> <src 1> <src 2>"
     echo "Expects 3 directories relative to the current directory."
@@ -26,6 +25,8 @@ usage() {
     echo "second and third directory contain the JPEGs of the first"
     echo "and second camera."
 }
+
+## Check input parameters.
 if [ $# -ne 3 ]; then
     echo "ERROR: expects 3 parameters, not $#"
     usage
